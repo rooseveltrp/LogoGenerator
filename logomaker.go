@@ -28,6 +28,8 @@ import (
 
 func main() {
 
+	start := time.Now()
+
 	runtime.GOMAXPROCS(5)
 
 	fmt.Println("How many variations do you want for each name? ")
@@ -61,20 +63,20 @@ func main() {
 		for i := 1; i < numberOfVariationsDesired+1; i++ {
 			// Generate the logos
 			waitGrp.Add(1)
-
-			go func(variation_number_to_use int) {
-				defer waitGrp.Done()
-				generateLogo(line[0], variation_number_to_use)
-			}(i)
+			go generateLogo(line[0], i, &waitGrp)
 		}
 	}
 
 	waitGrp.Wait()
+
+	elapsed := time.Since(start)
+	log.Printf("Process took %s", elapsed)
+
 }
 
-func generateLogo(companyName string, variation_number int) {
+func generateLogo(companyName string, variationNumber int, waitGrpToUse *sync.WaitGroup) {
 
-	fmt.Println(fmt.Sprintf("Generating %s Variation %d", companyName, variation_number))
+	fmt.Println(fmt.Sprintf("Generating %s Variation %d", companyName, variationNumber))
 
 	// regex for a clean file name
 	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
@@ -82,7 +84,7 @@ func generateLogo(companyName string, variation_number int) {
 		log.Fatal("Bad Regex: %s", err)
 	}
 
-	logoFileSaveName := fmt.Sprintf("%s_Variation_%d_%s", reg.ReplaceAllString(companyName, ""), variation_number, time.Now().Format("20060102150405"))
+	logoFileSaveName := fmt.Sprintf("%s_Variation_%d", reg.ReplaceAllString(companyName, ""), variationNumber)
 
 	// setup the background
 	width := 1920
@@ -127,6 +129,8 @@ func generateLogo(companyName string, variation_number int) {
 	// save the file
 	f, _ := os.Create(fmt.Sprintf("output/%s.png", logoFileSaveName))
 	png.Encode(f, myLogo)
+
+	waitGrpToUse.Done()
 }
 
 func getRandomFontAndContext() *freetype.Context {
